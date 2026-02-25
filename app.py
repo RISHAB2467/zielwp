@@ -1,136 +1,31 @@
 from flask import Flask, request
-import requests
 import os
-import json
 
 app = Flask(__name__)
 
-VERIFY_TOKEN = os.environ.get("VERIFY_TOKEN", "ziel123")
-ACCESS_TOKEN = os.environ.get("ACCESS_TOKEN")
-PHONE_NUMBER_ID = os.environ.get("PHONE_NUMBER_ID")
+VERIFY_TOKEN = os.environ.get("VERIFY_TOKEN")
 
-# ---------------- ROOT ----------------
 @app.route("/")
 def home():
-    return "Bot is running successfully 🚀"
+    return "Server Running ✅"
 
-# ---------------- VERIFY WEBHOOK ----------------
 @app.route("/webhook", methods=["GET"])
 def verify():
-    verify_token = request.args.get("hub.verify_token")
+    token = request.args.get("hub.verify_token")
     challenge = request.args.get("hub.challenge")
 
-    print("Received token:", verify_token)
-    print("Expected token:", VERIFY_TOKEN)
+    print("Incoming token:", token)
+    print("Server token:", VERIFY_TOKEN)
 
-    if verify_token == VERIFY_TOKEN:
+    if token and token == VERIFY_TOKEN:
         return challenge, 200
-    else:
-        return "Verification failed ❌", 403
+    return "Forbidden", 403
 
-# ---------------- RECEIVE MESSAGES ----------------
+
 @app.route("/webhook", methods=["POST"])
 def webhook():
-    data = request.get_json()
-    print("Incoming:", json.dumps(data, indent=2))
-
-    if data.get("object") == "whatsapp_business_account":
-        for entry in data.get("entry", []):
-            for change in entry.get("changes", []):
-                value = change.get("value", {})
-                messages = value.get("messages")
-
-                if messages:
-                    for message in messages:
-                        sender = message.get("from")
-                        msg_type = message.get("type")
-
-                        if msg_type == "text":
-                            send_buttons(sender)
-
-                        if msg_type == "interactive":
-                            button_id = message["interactive"]["button_reply"]["id"]
-                            handle_button(sender, button_id)
-
+    print("Webhook received")
     return "EVENT_RECEIVED", 200
-
-
-# ---------------- SEND BUTTONS ----------------
-def send_buttons(to):
-    url = f"https://graph.facebook.com/v18.0/{PHONE_NUMBER_ID}/messages"
-
-    headers = {
-        "Authorization": f"Bearer {ACCESS_TOKEN}",
-        "Content-Type": "application/json"
-    }
-
-    data = {
-        "messaging_product": "whatsapp",
-        "to": to,
-        "type": "interactive",
-        "interactive": {
-            "type": "button",
-            "body": {
-                "text": "📚 Welcome to Ziel Coaching!\nChoose your class:"
-            },
-            "action": {
-                "buttons": [
-                    {
-                        "type": "reply",
-                        "reply": {
-                            "id": "class6",
-                            "title": "Class 6"
-                        }
-                    },
-                    {
-                        "type": "reply",
-                        "reply": {
-                            "id": "class7",
-                            "title": "Class 7"
-                        }
-                    },
-                    {
-                        "type": "reply",
-                        "reply": {
-                            "id": "class8",
-                            "title": "Class 8"
-                        }
-                    }
-                ]
-            }
-        }
-    }
-
-    requests.post(url, headers=headers, json=data)
-
-
-# ---------------- HANDLE BUTTON CLICK ----------------
-def handle_button(to, button_id):
-    url = f"https://graph.facebook.com/v18.0/{PHONE_NUMBER_ID}/messages"
-
-    headers = {
-        "Authorization": f"Bearer {ACCESS_TOKEN}",
-        "Content-Type": "application/json"
-    }
-
-    links = {
-        "class6": "https://drive.google.com/your-class6-link",
-        "class7": "https://drive.google.com/your-class7-link",
-        "class8": "https://drive.google.com/your-class8-link"
-    }
-
-    text = links.get(button_id, "Invalid option")
-
-    data = {
-        "messaging_product": "whatsapp",
-        "to": to,
-        "type": "text",
-        "text": {
-            "body": f"Here is your link:\n{text}"
-        }
-    }
-
-    requests.post(url, headers=headers, json=data)
 
 
 if __name__ == "__main__":
