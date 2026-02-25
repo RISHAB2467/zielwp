@@ -5,33 +5,34 @@ import json
 
 app = Flask(__name__)
 
-VERIFY_TOKEN = os.environ.get("VERIFY_TOKEN")
+VERIFY_TOKEN = os.environ.get("VERIFY_TOKEN", "ziel123")
 ACCESS_TOKEN = os.environ.get("ACCESS_TOKEN")
 PHONE_NUMBER_ID = os.environ.get("PHONE_NUMBER_ID")
 
-# ---------------- ROOT ROUTE ----------------
+# ---------------- ROOT ----------------
 @app.route("/")
 def home():
     return "Bot is running successfully 🚀"
 
-# ---------------- WEBHOOK VERIFY ----------------
+# ---------------- VERIFY WEBHOOK ----------------
 @app.route("/webhook", methods=["GET"])
 def verify():
-    mode = request.args.get("hub.mode")
-    token = request.args.get("hub.verify_token")
+    verify_token = request.args.get("hub.verify_token")
     challenge = request.args.get("hub.challenge")
 
-    if mode == "subscribe" and token == VERIFY_TOKEN:
-        print("Webhook Verified ✅")
+    print("Received token:", verify_token)
+    print("Expected token:", VERIFY_TOKEN)
+
+    if verify_token == VERIFY_TOKEN:
         return challenge, 200
     else:
         return "Verification failed ❌", 403
 
-# ---------------- WEBHOOK RECEIVE ----------------
+# ---------------- RECEIVE MESSAGES ----------------
 @app.route("/webhook", methods=["POST"])
 def webhook():
     data = request.get_json()
-    print("Incoming webhook:", json.dumps(data, indent=2))
+    print("Incoming:", json.dumps(data, indent=2))
 
     if data.get("object") == "whatsapp_business_account":
         for entry in data.get("entry", []):
@@ -44,20 +45,18 @@ def webhook():
                         sender = message.get("from")
                         msg_type = message.get("type")
 
-                        # If user sends text
                         if msg_type == "text":
-                            send_button_message(sender)
+                            send_buttons(sender)
 
-                        # If user clicks button
                         if msg_type == "interactive":
-                            button_reply = message["interactive"]["button_reply"]["id"]
-                            handle_button_reply(sender, button_reply)
+                            button_id = message["interactive"]["button_reply"]["id"]
+                            handle_button(sender, button_id)
 
     return "EVENT_RECEIVED", 200
 
 
-# ---------------- SEND BUTTON MESSAGE ----------------
-def send_button_message(to):
+# ---------------- SEND BUTTONS ----------------
+def send_buttons(to):
     url = f"https://graph.facebook.com/v18.0/{PHONE_NUMBER_ID}/messages"
 
     headers = {
@@ -72,7 +71,7 @@ def send_button_message(to):
         "interactive": {
             "type": "button",
             "body": {
-                "text": "📚 Welcome to Ziel Coaching!\n\nChoose your class:"
+                "text": "📚 Welcome to Ziel Coaching!\nChoose your class:"
             },
             "action": {
                 "buttons": [
@@ -106,7 +105,7 @@ def send_button_message(to):
 
 
 # ---------------- HANDLE BUTTON CLICK ----------------
-def handle_button_reply(to, button_id):
+def handle_button(to, button_id):
     url = f"https://graph.facebook.com/v18.0/{PHONE_NUMBER_ID}/messages"
 
     headers = {
@@ -120,14 +119,14 @@ def handle_button_reply(to, button_id):
         "class8": "https://drive.google.com/your-class8-link"
     }
 
-    message_text = links.get(button_id, "Invalid option")
+    text = links.get(button_id, "Invalid option")
 
     data = {
         "messaging_product": "whatsapp",
         "to": to,
         "type": "text",
         "text": {
-            "body": f"Here is your link:\n{message_text}"
+            "body": f"Here is your link:\n{text}"
         }
     }
 
