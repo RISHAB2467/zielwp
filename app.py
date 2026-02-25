@@ -22,26 +22,18 @@ def verify():
         return request.args.get("hub.challenge")
     return "Verification failed"
 
-@app.route("/webhook", methods=["POST"])
-def webhook():
-    data = request.get_json()
+@app.route("/webhook", methods=["GET"])
+def verify():
+    mode = request.args.get("hub.mode")
+    token = request.args.get("hub.verify_token")
+    challenge = request.args.get("hub.challenge")
 
-    if "entry" in data:
-        for entry in data["entry"]:
-            for change in entry["changes"]:
-                value = change["value"]
+    # If this is a Meta verification request
+    if mode == "subscribe" and token == VERIFY_TOKEN:
+        return challenge, 200
 
-                if "messages" in value:
-                    msg = value["messages"][0]
-                    sender = msg["from"]
-
-                    if msg.get("button"):
-                        class_id = msg["button"]["id"]
-                        send_drive_link(sender, class_id)
-                    else:
-                        send_welcome(sender)
-
-    return "ok", 200
+    # If someone opens in browser normally
+    return "Webhook is live", 200
 
 def send_welcome(to):
     url = f"https://graph.facebook.com/v22.0/{PHONE_NUMBER_ID}/messages"
